@@ -46,3 +46,9 @@ Configure API keys through Streamlit Secrets or environment variables.
 ## 👩‍💻 Project
 
 ResearchMate AI is a general-purpose academic research assistant. Enter any research topic and receive an automatically generated research report.
+
+## 🚀 ResearchMate AI – Live Demo
+
+**Live Demo:** https://nebraska-oct-actions-remove.trycloudflare.com/
+
+> Note: This is a temporary Cloudflare Quick Tunnel URL and works only while the Colab application and tunnel are running.
