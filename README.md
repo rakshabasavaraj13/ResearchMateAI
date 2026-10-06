@@ -49,6 +49,6 @@ ResearchMate AI is a general-purpose academic research assistant. Enter any rese
 
 ## 🚀 ResearchMate AI – Live Demo
 
-**Live Demo:** https://nebraska-oct-actions-remove.trycloudflare.com/
+**Live Demo:** https://nevertheless-meal-collectible-industrial.trycloudflare.com/
 
 > Note: This is a temporary Cloudflare Quick Tunnel URL and works only while the Colab application and tunnel are running.
