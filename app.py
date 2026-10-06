@@ -63,6 +63,18 @@ max_papers = st.selectbox(
     index=1
 )
 
+target_pages = st.selectbox(
+    "📄 Target Report Length (Pages)",
+    [10, 15, 20, 25, 30, 35, 40, 45, 50],
+    index=0,
+    key="target_report_pages"
+)
+
+
+
+
+
+
 generate = st.button(
     "🚀 Generate Research Report",
     type="primary",
@@ -97,7 +109,8 @@ if generate:
 
                 result = run_full_research_agent(
                     topic.strip(),
-                    max_papers=max_papers
+                    max_papers=max_papers,
+                    target_pages=target_pages
                 )
 
                 status.update(

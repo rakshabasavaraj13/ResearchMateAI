@@ -498,7 +498,7 @@ def select_best_papers(papers, max_papers=15):
 
     usable.sort(
         key=lambda p: (
-            p.get("cited_by", 0),
+            p.get("cited_by_count", p.get("cited_by", 0)),
             p.get("year", 0)
         ),
         reverse=True
@@ -514,7 +514,7 @@ def select_best_papers(papers, max_papers=15):
         print(
             f"{i}. {paper['title']} "
             f"({paper['year']}) — "
-            f"{paper['cited_by']} citations"
+            f"{paper.get('cited_by_count', paper.get('cited_by', 0))} citations"
         )
 
     return selected
@@ -622,7 +622,7 @@ def analyze_papers(papers, topic):
                 "title": paper["title"],
                 "year": paper["year"],
                 "doi": paper["doi"],
-                "citations": paper["cited_by"],
+                "citations": paper.get("cited_by_count", paper.get("cited_by", 0)),
                 "abstract": paper["abstract"],
                 "analysis": analysis
             })
@@ -897,24 +897,38 @@ def generate_academic_report(
     literature_survey,
     comparison,
     research_gap,
-    analyzed_papers
+    analyzed_papers,
+    target_pages=10
 ):
+
+    # Approximate academic pages assuming ~450 words/page.
+    target_words = int(target_pages * 450)
 
     references = ""
 
     for i, paper in enumerate(analyzed_papers, 1):
         references += (
-            f"[{i}] {paper['title']}. "
-            f"Publication Year: {paper['year']}. "
-            f"DOI: {paper['doi']}. "
-            f"Citations: {paper['citations']}.\n"
+            f"[{i}] {paper.get('title', 'Unknown Title')}. "
+            f"Publication Year: {paper.get('year', 'N/A')}. "
+            f"DOI: {paper.get('doi', 'N/A')}. "
+            f"Citations: {paper.get('citations', 0)}.\\n"
         )
 
     prompt = f"""
-You are an academic research paper generation agent.
+You are an expert academic research paper generation agent.
 
 Research Topic:
 {topic}
+
+TARGET REPORT LENGTH:
+Approximately {target_pages} pages.
+
+TARGET WORD COUNT:
+Approximately {target_words} words.
+
+IMPORTANT:
+Generate a substantial academic report close to the requested
+word count. Do NOT produce a short summary.
 
 Research Objective:
 {research_plan["research_objective"]}
@@ -942,7 +956,7 @@ Use exactly this structure:
 
 ## Abstract
 
-Write a concise academic abstract summarizing:
+Write approximately 250-350 words covering:
 - background
 - objective
 - literature-based approach
@@ -956,64 +970,120 @@ Provide 5-7 relevant keywords.
 
 ## 1. Introduction
 
-Explain:
+Provide a detailed academic introduction covering:
 - background
 - importance of the topic
 - motivation
 - research objective
+- research questions
 - scope
+- significance
 
-## 2. Literature Survey
+## 2. Research Methodology
 
-Use the generated literature survey.
+Explain the AI-assisted literature survey methodology:
+- research planning
+- literature/source discovery
+- source selection
+- paper analysis
+- thematic synthesis
+- comparative analysis
+- research-gap identification
 
-## 3. Comparative Analysis
+Clearly state that this is a literature-based study and do not claim
+that peer review was programmatically verified.
 
-Compare the major findings, approaches, themes, and limitations across the analyzed studies.
+## 3. Literature Survey
 
-## 4. Research Gaps
+Use the generated literature survey and expand it substantially.
 
-Present the major research gap and supporting gaps.
+Include:
 
-## 5. Future Research Directions
+### 3.1 Major Research Themes
 
-Present realistic directions supported by the literature.
+### 3.2 Existing Approaches and Methodologies
 
-## 6. Conclusion
+### 3.3 Major Findings
 
-Summarize the overall findings and significance.
+### 3.4 Challenges and Limitations
+
+### 3.5 Comparative Analysis of Existing Studies
+
+### 3.6 Research Gaps
+
+### 3.7 Future Research Directions
+
+Discuss the literature in depth rather than merely listing papers.
+
+## 4. Comparative Analysis
+
+Provide a detailed synthesis comparing:
+- methodologies
+- approaches
+- findings
+- strengths
+- limitations
+- research themes
+
+Use tables where useful.
+
+## 5. Research Gaps
+
+Discuss the major research gap and supporting gaps in detail.
+
+Explain:
+- what is missing
+- why it matters
+- what existing studies do not adequately address
+- potential research opportunities
+
+## 6. Future Research Directions
+
+Provide detailed and realistic future research directions supported
+by the analyzed literature.
+
+Clearly distinguish proposed future work from established findings.
+
+## 7. Conclusion
+
+Provide a detailed academic conclusion summarizing the literature,
+major findings, gaps, significance, and future opportunities.
 
 ## References
 
-List the supplied references.
+List all supplied references.
 
 IMPORTANT RULES:
-- Use formal academic language.
+
+- Target approximately {target_words} words.
+- Maintain formal academic language.
 - Do not invent statistics, experiments, authors, journals, or results.
 - Do not create fake citations.
 - Use only information supplied above.
 - Clearly distinguish literature findings from future suggestions.
-- If information is unavailable, state that it is not available from the analyzed literature.
+- If information is unavailable from the analyzed literature, explicitly
+  state that it is unavailable.
+- Do not intentionally make the report shorter than necessary.
+- Develop each section proportionally to achieve the requested length.
 """
 
     response = report_llm.invoke(prompt)
 
     if isinstance(response.content, list):
-        text = ""
+        result_text = ""
 
         for item in response.content:
             if isinstance(item, dict) and item.get("type") == "text":
-                text += item.get("text", "")
+                result_text += item.get("text", "")
             elif isinstance(item, str):
-                text += item
+                result_text += item
 
     else:
-        text = str(response.content)
+        result_text = str(response.content)
 
-    return text.strip()
+    return result_text.strip()
 
-
-def run_full_research_agent(topic, max_papers=15):
+def run_full_research_agent(topic, max_papers=15, target_pages=10):
     """
     Complete autonomous academic research agent.
 
@@ -1141,7 +1211,8 @@ def run_full_research_agent(topic, max_papers=15):
         literature_survey,
         comparison,
         research_gap,
-        analyzed_papers
+        analyzed_papers,
+        target_pages=target_pages
     )
 
     print("✓ Academic report generated")
