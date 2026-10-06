@@ -1172,3 +1172,148 @@ def run_full_research_agent(topic, max_papers=15):
     }
 
 
+
+
+
+def search_openalex_targeted(topic, research_plan, papers_per_query=3):
+    """
+    Fast academic search.
+    Uses Tavily first to avoid Semantic Scholar/OpenAlex rate limits.
+    Falls back to one OpenAlex request if Tavily is unavailable.
+    """
+
+    import os
+    import requests
+    import re
+
+    print(f"🔎 Fast academic search: {topic}")
+
+    papers = []
+    seen = set()
+
+    tavily_key = os.getenv("TAVILY_API_KEY")
+
+    # ---------------------------------------------------------
+    # 1. FAST TAVILY SEARCH
+    # ---------------------------------------------------------
+    if tavily_key:
+        try:
+            response = requests.post(
+                "https://api.tavily.com/search",
+                json={
+                    "api_key": tavily_key,
+                    "query": topic + " research literature review",
+                    "search_depth": "basic",
+                    "max_results": 12,
+                    "include_answer": False
+                },
+                timeout=20
+            )
+
+            if response.status_code == 200:
+                results = response.json().get("results", [])
+
+                for item in results:
+                    title = item.get("title", "").strip()
+                    content = item.get("content", "").strip()
+                    url = item.get("url", "").strip()
+
+                    if not title or not content:
+                        continue
+
+                    key = url or title.lower()
+
+                    if key in seen:
+                        continue
+
+                    seen.add(key)
+
+                    papers.append({
+                        "id": key,
+                        "title": title,
+                        "abstract": content,
+                        "year": None,
+                        "citation_count": 0,
+                        "doi": None,
+                        "url": url,
+                        "authors": [],
+                        "venue": "",
+                        "source": "Tavily academic/web search"
+                    })
+
+                if papers:
+                    print(f"✅ Fast search found {len(papers)} sources")
+                    return papers
+
+        except Exception as e:
+            print("⚠️ Tavily search failed:", str(e))
+
+    # ---------------------------------------------------------
+    # 2. ONE OPENALEX FALLBACK REQUEST
+    # ---------------------------------------------------------
+    try:
+        params = {
+            "search": topic,
+            "filter": "has_abstract:true",
+            "per-page": 12,
+            "mailto": os.getenv("RESEARCH_EMAIL", "")
+        }
+
+        response = requests.get(
+            "https://api.openalex.org/works",
+            params=params,
+            timeout=15
+        )
+
+        if response.status_code == 200:
+            data = response.json()
+
+            for item in data.get("results", []):
+                abstract = ""
+
+                inverted = item.get("abstract_inverted_index") or {}
+
+                if inverted:
+                    words = []
+                    for word, positions in inverted.items():
+                        for pos in positions:
+                            words.append((pos, word))
+
+                    abstract = " ".join(
+                        word for _, word in sorted(words)
+                    )
+
+                if not abstract:
+                    continue
+
+                papers.append({
+                    "id": item.get("id"),
+                    "title": item.get("title", ""),
+                    "abstract": abstract,
+                    "year": item.get("publication_year"),
+                    "citation_count": item.get("cited_by_count", 0),
+                    "doi": item.get("doi"),
+                    "url": item.get("primary_location", {}).get("landing_page_url"),
+                    "authors": [
+                        a.get("author", {}).get("display_name", "")
+                        for a in item.get("authorships", [])
+                    ],
+                    "venue": (
+                        item.get("primary_location", {})
+                        .get("source", {}) or {}
+                    ).get("display_name", ""),
+                    "source": "OpenAlex"
+                })
+
+            if papers:
+                print(f"✅ OpenAlex fallback found {len(papers)} papers")
+                return papers
+
+        print(f"⚠️ OpenAlex returned HTTP {response.status_code}")
+
+    except Exception as e:
+        print("⚠️ OpenAlex fallback failed:", str(e))
+
+    print("❌ No academic sources found.")
+    return []
+
